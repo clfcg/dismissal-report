@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "dismissal-report"
+version = "0.1.0"
+description = ""
+authors = ["clfcg <leontev_dma@mail.ru>"]
+readme = "README.md"
+packages = [{include = "dismissal_report"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+psycopg2 = "^2.9.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
