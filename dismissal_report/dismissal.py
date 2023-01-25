@@ -2,12 +2,14 @@ import psycopg2 as pg
 from psycopg2 import Error
 
 from configparser import ConfigParser
+from datetime import datetime
 
 
 def main():
     connection_to_db()
 
 def connection_to_db():
+    unload_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         config_path = 'dismissal_report/config/db_conf.ini'
         config = ConfigParser()
@@ -19,12 +21,16 @@ def connection_to_db():
                                 password=config["db_login"]["password"])
 
         cursor = connection.cursor()
-        query = """
-        SELECT version();
-        """
-        cursor.execute(query)
-        print("Версия PostgreSQL:")
-        print(cursor.fetchone())
+        print(unload_date, "\tСоединение установлено.")
+        print(config["db_login"]["table_name"])
+
+        q1 = """
+            create table if not exists {0} (k varchar(50));
+            """.format(config["db_login"]["table_name"])
+
+        print(q1)
+        cursor.execute(q1)
+        connection.commit()
 
     except (Exception, Error) as error:
         print("Ошибка подключения", error)
