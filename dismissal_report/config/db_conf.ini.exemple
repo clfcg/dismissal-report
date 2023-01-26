@@ -1,7 +1,11 @@
 #db_config.ini
-[db_login]
-db_host = 127.0.0.1
-db_port = 5432
-db_name = postgres
-db_user = postgres
-db_password = 
+[db_options]
+host = 127.0.0.1
+port = 5432
+name = dismissal
+user = postgres
+password = postgres
+table_name = dismissal
+
+[path]
+unload_url = 
