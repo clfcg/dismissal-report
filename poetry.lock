@@ -23,7 +23,19 @@ files = [
     {file = "psycopg2-2.9.5.tar.gz", hash = "sha256:a5246d2e683a972e2187a8714b5c2cf8156c064629f9a9b1a873c1730d9e245a"},
 ]
 
+[[package]]
+name = "xlsxwriter"
+version = "3.0.7"
+description = "A Python module for creating Excel XLSX files."
+category = "main"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "XlsxWriter-3.0.7-py3-none-any.whl", hash = "sha256:d79dadac9dcbff3c24281764b052b46bcdb391f3184f337c4c4e6ed8d2738d7d"},
+    {file = "XlsxWriter-3.0.7.tar.gz", hash = "sha256:1239958b12da12be6abf05b32f64ff162eb75fff0fdf00d901ca0f46dc0557cf"},
+]
+
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "63d9782f1935174c1ac1695d1f98fc56417a4b695ea42bb3a1d8f789e6c1ecf0"
+content-hash = "c8b6582311e5a0d1a90f804b6d44c3a594dcb67339f4b9840ad9c07fc3f99f06"
