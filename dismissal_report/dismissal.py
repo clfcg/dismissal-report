@@ -1,15 +1,66 @@
 import psycopg2 as pg
 from psycopg2 import Error
+import xlsxwriter as xw
 
 from configparser import ConfigParser
-from datetime import datetime
+import datetime
 
 
 def main():
-    connection_to_db()
+    titles = [
+        "ОИВ", 
+        "Организация", 
+        "ИНН",
+        "ФИО",
+        "Подразделение",
+        "Должность",
+        "Дата увольнения",
+        "Период"]
+    values = take_data_from_db()
+    load_to_xls(titles, values)
 
-def connection_to_db():
-    unload_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def load_to_xls(titles : list, values : list):
+    """
+    Формирование .xlsx файла:
+    -Форматирование ячеек.
+    -Загрузка данных по заголовкам и содержанию ячеек.
+
+    Передаются два списка, первый с заголовками, второй с данными.
+    """
+    wb = xw.Workbook("temp.xlsx")
+    ws = wb.add_worksheet("Уволенные сотрудники")
+
+    #Форматирование ячеек
+    title_style = wb.add_format({"bold": True, 
+        "font_name": "Times New Roman", 
+        "font_size": 12})
+    another_style = wb.add_format({"font_name": "Times New Roman",
+        "font_size": 10})
+    ws.autofilter("A1:H1")
+
+    #Заголовки таблицы
+    for col, data in enumerate(titles):
+        ws.set_column(0, col, 25)
+        ws.write(0, col, data, title_style)
+
+    #Загрузка данных
+    for row, tup in enumerate(values):
+        for col, data in enumerate(tup):
+            if not isinstance(data, datetime.date):
+                ws.write(row+1, col, data, another_style)
+            else:
+                ws.write(row+1, col, data.strftime("%Y.%m.%d"), 
+                    another_style)
+    wb.close()
+
+
+def take_data_from_db():
+    """
+    Подключение к базе данных и экспорт данных по уволенным в список из
+    кортежей.
+    """
+    unload_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         config_path = 'dismissal_report/config/db_conf.ini'
         config = ConfigParser()
@@ -32,16 +83,19 @@ def connection_to_db():
                                             employee varchar(100) NULL,
                                             subdivision varchar(255) NULL,
                                             post varchar(255) NULL,
-                                            date_dismissal date NULL,
+                                            date_dismiss date NULL,
                                             year_month varchar(20) NULL);
             """.format(config["db_options"]["table_name"])
         cursor.execute(query_check_table)
 
         #Выборка всех записей из таблицы.
         query_select_all_records = """
-            SELECT * 
+            SELECT 
+                oiv, org, inn, 
+                employee, subdivision, post, 
+                date_dismiss, year_month
             FROM {0}
-            ORDER BY oiv, org, employee
+            ORDER BY oiv, org, date_dismiss
             """.format(config["db_options"]["table_name"])
         cursor.execute(query_select_all_records)
         records = cursor.fetchall()
