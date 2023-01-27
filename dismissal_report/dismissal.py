@@ -2,11 +2,21 @@ import psycopg2 as pg
 from psycopg2 import Error
 import xlsxwriter as xw
 
+import os
 from configparser import ConfigParser
 import datetime
 
 
 def main():
+    config_path = 'dismissal_report/config/db_conf.ini'
+    config = ConfigParser()
+    config.read(config_path)
+
+    export_url = config["path"]["unload_url"]
+    data_from_db = take_data_from_db()
+    file_name = datetime.datetime.now().strftime("%Y-%m-%d")
+    values = data_from_db["records"]
+    export_dir = f"{export_url}{data_from_db['max_date'][:7]}"
     titles = [
         "ОИВ", 
         "Организация", 
@@ -16,43 +26,13 @@ def main():
         "Должность",
         "Дата увольнения",
         "Период"]
-    values = take_data_from_db()
-    load_to_xls(titles, values)
-
-
-def load_to_xls(titles : list, values : list):
-    """
-    Формирование .xlsx файла:
-    -Форматирование ячеек.
-    -Загрузка данных по заголовкам и содержанию ячеек.
-
-    Передаются два списка, первый с заголовками, второй с данными.
-    """
-    wb = xw.Workbook("temp.xlsx")
-    ws = wb.add_worksheet("Уволенные сотрудники")
-
-    #Форматирование ячеек
-    title_style = wb.add_format({"bold": True, 
-        "font_name": "Times New Roman", 
-        "font_size": 12})
-    another_style = wb.add_format({"font_name": "Times New Roman",
-        "font_size": 10})
-    ws.autofilter("A1:H1")
-
-    #Заголовки таблицы
-    for col, data in enumerate(titles):
-        ws.set_column(0, col, 25)
-        ws.write(0, col, data, title_style)
-
-    #Загрузка данных
-    for row, tup in enumerate(values):
-        for col, data in enumerate(tup):
-            if not isinstance(data, datetime.date):
-                ws.write(row+1, col, data, another_style)
-            else:
-                ws.write(row+1, col, data.strftime("%Y.%m.%d"), 
-                    another_style)
-    wb.close()
+    
+    #Создание каталога для выгрузки и выгрузка
+    if not os.path.exists(export_dir):
+        os.mkdir(export_dir)
+        load_to_xls(titles, values, export_dir, file_name)
+    else:
+        load_to_xls(titles, values, export_dir, file_name)
 
 
 def take_data_from_db():
@@ -60,7 +40,6 @@ def take_data_from_db():
     Подключение к базе данных и экспорт данных по уволенным в список из
     кортежей.
     """
-    unload_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
         config_path = 'dismissal_report/config/db_conf.ini'
         config = ConfigParser()
@@ -72,7 +51,7 @@ def take_data_from_db():
                                 password=config["db_options"]["password"])
 
         cursor = connection.cursor()
-        print(f"{unload_date}\t>\tСоединение установлено.")
+        get_log("Соединение установлено.")
 
         #Проверка и создание таблицы с уволенными сотрудниками.
         query_check_table = """
@@ -99,17 +78,80 @@ def take_data_from_db():
             """.format(config["db_options"]["table_name"])
         cursor.execute(query_select_all_records)
         records = cursor.fetchall()
-        print(f"{unload_date}\t>\tДанные получены из БД.")
-        return records
+
+        #Выборка максимальной даты
+        query_select_max_date = """
+            SELECT max(date_dismiss)
+            FROM {0}
+            """.format(config["db_options"]["table_name"])
+        cursor.execute(query_select_max_date)
+        max_date = cursor.fetchone()
+        max_date = max_date[0].strftime("%Y-%m-%d")
+
+        get_log("Данные получены из БД.")
+        return {"records" : records, "max_date" : max_date}
     except (Exception, Error) as error:
         connection = None
-        print(f"{unload_date}\t>\tОшибка подключения\n{error}")
+        get_log(f"Ошибка подключения\n{error}")
     finally:
         if connection:
             connection.commit()
             cursor.close()
             connection.close()
-            print(f"{unload_date}\t>\tПодключение к БД закрыто.")
+            get_log(f"Подключение к базе данных закрыто.")
+
+
+def load_to_xls(titles : list, values : list, exp_path : str, file_name: str):
+    """
+    Формирование .xlsx файла:
+    -Форматирование ячеек.
+    -Загрузка данных по заголовкам и содержанию ячеек.
+
+    Передаются два списка, первый с заголовками, второй с данными.
+    """
+    wb = xw.Workbook(f"{exp_path}/{file_name}.xlsx")
+    ws = wb.add_worksheet("Уволенные сотрудники")
+
+    #Форматирование ячеек
+    title_style = wb.add_format({"bold": True, 
+        "font_name": "Times New Roman", 
+        "font_size": 12})
+    another_style = wb.add_format({"font_name": "Times New Roman",
+        "font_size": 10})
+    ws.autofilter("A1:H1")
+
+    #Заголовки таблицы
+    for col, data in enumerate(titles):
+        ws.set_column(0, col, 25)
+        ws.write(0, col, data, title_style)
+
+    #Загрузка данных
+    for row, tup in enumerate(values):
+        for col, data in enumerate(tup):
+            if not isinstance(data, datetime.date):
+                ws.write(row+1, col, data, another_style)
+            else:
+                ws.write(row+1, col, data.strftime("%Y.%m.%d"), 
+                    another_style)
+    wb.close()
+    get_log("Файл создан.")
+
+
+def get_log(input_text : str):
+    """
+    Функция записи логов в файл.
+    Принимает один аргумент - текст записи.
+    """
+    log_datetime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if os.path.exists("Logs.log"):
+        with open("Logs.log", "a", encoding="utf-8") as f:
+            f.write(f"{log_datetime}>\t{input_text}\n")
+            f.close()
+    else:
+        with open("Logs.log", "w", encoding="utf-8") as f:
+            f.write(f"{log_datetime}>\t{input_text}\n")
+            f.close()
+
 
 if __name__ == "__main__":
     main()
