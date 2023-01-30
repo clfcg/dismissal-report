@@ -13,10 +13,8 @@ def main():
     config.read(config_path)
 
     export_url = config["path"]["unload_url"]
-    data_from_db = take_data_from_db()
     file_name = datetime.datetime.now().strftime("%Y-%m-%d")
-    values = data_from_db["records"]
-    export_dir = f"{export_url}{data_from_db['max_date'][:7]}"
+    records = take_data_from_db()
     titles = [
         "ОИВ", 
         "Организация", 
@@ -28,11 +26,11 @@ def main():
         "Период"]
     
     #Создание каталога для выгрузки и выгрузка
-    if not os.path.exists(export_dir):
-        os.mkdir(export_dir)
-        load_to_xls(titles, values, export_dir, file_name)
+    if not os.path.exists(export_url):
+        os.mkdir(export_url)
+        load_to_xls(titles, records, export_url, file_name)
     else:
-        load_to_xls(titles, values, export_dir, file_name)
+        load_to_xls(titles, records, export_url, file_name)
 
 
 def take_data_from_db():
@@ -79,17 +77,8 @@ def take_data_from_db():
         cursor.execute(query_select_all_records)
         records = cursor.fetchall()
 
-        #Выборка максимальной даты
-        query_select_max_date = """
-            SELECT max(date_dismiss)
-            FROM {0}
-            """.format(config["db_options"]["table_name"])
-        cursor.execute(query_select_max_date)
-        max_date = cursor.fetchone()
-        max_date = max_date[0].strftime("%Y-%m-%d")
-
         get_log("Данные получены из БД.")
-        return {"records" : records, "max_date" : max_date}
+        return records
     except (Exception, Error) as error:
         connection = None
         get_log(f"Ошибка подключения\n{error}")
@@ -111,6 +100,7 @@ def load_to_xls(titles : list, values : list, exp_path : str, file_name: str):
     """
     wb = xw.Workbook(f"{exp_path}/{file_name}.xlsx")
     ws = wb.add_worksheet("Уволенные сотрудники")
+    ws.freeze_panes(1, 0)
 
     #Форматирование ячеек
     title_style = wb.add_format({"bold": True, 
@@ -134,7 +124,7 @@ def load_to_xls(titles : list, values : list, exp_path : str, file_name: str):
                 ws.write(row+1, col, data.strftime("%Y.%m.%d"), 
                     another_style)
     wb.close()
-    get_log("Файл создан.")
+    get_log("Отчет выгружен.")
 
 
 def get_log(input_text : str):
